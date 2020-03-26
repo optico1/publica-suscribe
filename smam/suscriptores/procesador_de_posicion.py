@@ -114,7 +114,7 @@ class ProcesadorPosicion:
         ch.basic_ack(delivery_tag=method.delivery_tag)
     
     def calc_svm(self, x, y, z):
-        # Se calcula la aceleracion del cuerpo SVM = √((𝐴𝑥)^2 + (𝐴𝑦)^2 + (𝐴𝑧)^2)
+        # Se calcula la aceleración del cuerpo SVM = √((𝐴𝑥)^2 + (𝐴𝑦)^2 + (𝐴𝑧)^2)
         x2 = pow(x, 2)
         y2 = pow(y, 2)
         z2 = pow(z, 2)
