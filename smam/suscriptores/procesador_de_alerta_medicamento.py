@@ -1,30 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------
-# Archivo: procesador_de_temperatura.py
+# Archivo: procesador_de_alerta_medicamento.py
 # Capitulo: 3 Estilo Publica-Subscribe
-# Autor(es): Perla Velasco & Yonathan Mtz.
-# Version: 2.0.1 Mayo 2017
+# Autor(es): Perla Velasco, Yonathan Mtz, Salvador Loera, Bryan Villa, Javier Sosa & Manuel Herrera.
+# Version: 2.0.2 Marzo 2020
 # Descripción:
 #
 #   Esta clase define el rol de un suscriptor, es decir, es un componente que recibe mensajes.
 #
 #   Las características de ésta clase son las siguientes:
 #
-#                                   procesador_de_temperatura.py
+#                                   procesador_de_alerta_medicamento.py
 #           +-----------------------+-------------------------+------------------------+
 #           |  Nombre del elemento  |     Responsabilidad     |      Propiedades       |
 #           +-----------------------+-------------------------+------------------------+
 #           |                       |                         |  - Se suscribe a los   |
 #           |                       |                         |    eventos generados   |
-#           |                       |  - Procesar valores     |    por el wearable     |
-#           |     Procesador de     |    extremos de          |    Xiaomi My Band.     |
-#           |     Temperatura       |    temperatura.         |  - Define el valor ex- |
-#           |                       |                         |    tremo de la         |
-#           |                       |                         |    temperatura.        |
+#           |                       |  - Procesar el tiempo   |    por el wearable     |
+#           |     Procesador de     |    para detectar que    |    Xiaomi My Band.     |
+#           |     Alerta de         |    medicamento le toca a|  - Define el horario de|
+#           |     Medicamento       |    cada adulto.         |    medicamento.        |
 #           |                       |                         |  - Notifica al monitor |
-#           |                       |                         |    cuando un valor ex- |
-#           |                       |                         |    tremo es detectado. |
+#           |                       |                         |    cuando le toca un   |
+#           |                       |                         |    medicamento al      |
+#           |                       |                         |    adulto.             |
+#           |                       |                         |                        |
 #           +-----------------------+-------------------------+------------------------+
 #
 #   A continuación se describen los métodos que se implementaron en ésta clase:
@@ -46,6 +47,10 @@
 #           |                        |  - body: mensaje recibi- |                       |
 #           |                        |     do.                  |                       |
 #           +------------------------+--------------------------+-----------------------+
+#           |    check_schedule()    |  - time: tiempo actual   |  - Verifica el horario|
+#           |                        |     a revisar.           |    y el medicamento   |
+#           |                        |                          |    que le toca.       |
+#           +------------------------+--------------------------+-----------------------+
 #           |    string_to_json()    |  - string: texto a con-  |  - Convierte un string|
 #           |                        |     vertir en JSON.      |    en un objeto JSON. |
 #           +------------------------+--------------------------+-----------------------+
@@ -60,10 +65,20 @@
 #-------------------------------------------------------------------------
 import pika
 import sys
+import time
+import random
 sys.path.append('../')
 from monitor import Monitor
-import time
+from datetime import datetime
 
+MEDS = (
+    "Paracetamol",
+    "Ibuprofeno",
+    "Insulina",
+    "Furosemida",
+    "Piroxicam",
+    "Tolbutamida",
+)
 
 class ProcesadorAlertaMedicamento:
 
@@ -75,9 +90,9 @@ class ProcesadorAlertaMedicamento:
             channel = connection.channel()
             # Se declara una cola para leer los mensajes enviados por el
             # Publicador
-            channel.queue_declare(queue='body_temperature', durable=True)
+            channel.queue_declare(queue='time', durable=True)
             channel.basic_qos(prefetch_count=1)
-            channel.basic_consume(on_message_callback=self.callback, queue='body_temperature')
+            channel.basic_consume(on_message_callback=self.callback, queue='time')
             channel.start_consuming()  # Se realiza la suscripción en el Distribuidor de Mensajes
         except (KeyboardInterrupt, SystemExit):
             channel.close()  # Se cierra la conexión
@@ -87,12 +102,22 @@ class ProcesadorAlertaMedicamento:
 
     def callback(self, ch, method, properties, body):
         json_message = self.string_to_json(body)
-        if float(json_message['body_temperature']) > 69:
+        med = self.check_schedule(json_message['datetime'])
+        # med = self.check_schedule(json_message['datetime'], json_message['datetime'])
+        if med:
             monitor = Monitor()
-            monitor.print_notification(json_message['datetime'], json_message['id'], json_message[
-                                       'body_temperature'], 'temperatura corporal', json_message['model'])
+            monitor.print_alarma(json_message['datetime'], json_message['id'], random.randint(10, 50), med, json_message['model'])
         time.sleep(1)
         ch.basic_ack(delivery_tag=method.delivery_tag)
+    
+    def check_schedule(self, time):
+        med = None
+        rand_hour = random.randint(0, 24)
+        date = datetime.strptime(time, "%d:%m:%Y:%H:%M:%S")
+        if int(datetime.strftime(date, "%H")) == rand_hour:
+            med = random.choice(MEDS)
+        return med
+        
 
     def string_to_json(self, string):
         message = {}
@@ -104,7 +129,8 @@ class ProcesadorAlertaMedicamento:
             v = x.split(': ')
             message[v[0].replace('\'', '')] = v[1].replace('\'', '')
         return message
+    
 
 if __name__ == '__main__':
-    p_temperatura = ProcesadorTemperatura()
-    p_temperatura.consume()
+    p_medicamento = ProcesadorAlertaMedicamento()
+    p_medicamento.consume()

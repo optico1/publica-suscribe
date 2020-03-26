@@ -3,8 +3,8 @@
 #-------------------------------------------------------------------------
 # Archivo: procesador_de_posicion.py
 # Capitulo: 3 Estilo Publica-Subscribe
-# Autor(es): Perla Velasco & Yonathan Mtz.
-# Version: 2.0.1 Mayo 2017
+# Autor(es): Perla Velasco, Yonathan Mtz, Salvador Loera, Bryan Villa, Javier Sosa & Manuel Herrera.
+# Version: 2.0.2 Marzo 2020
 # Descripción:
 #
 #   Esta clase define el rol de un suscriptor, es decir, es un componente que recibe mensajes.

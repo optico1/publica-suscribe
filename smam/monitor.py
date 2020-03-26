@@ -25,6 +25,17 @@
 #           +------------------------+--------------------------+-----------------------+
 #           |         Nombre         |        Parámetros        |        Función        |
 #           +------------------------+--------------------------+-----------------------+
+#           |  print_alarma()        |  - datetime: fecha en que|  - Imprime el mensa-  |
+#           |                        |     se envió el mensaje. |    je recibido.       |
+#           |                        |  - id: identificador del |                       |
+#           |                        |     dispositivo que      |                       |
+#           |                        |     envió el mensaje.    |                       |
+#           |                        |  - dose: dosis que debe  |                       |
+#           |                        |     tomar.               |                       |
+#           |                        |  - of: medicamento que   |                       |
+#           |                        |     debe tomar.          |                       |
+#           |                        |                          |                       |
+#           +------------------------+--------------------------+-----------------------+
 #           |  print_notification()  |  - datetime: fecha en que|  - Imprime el mensa-  |
 #           |                        |     se envió el mensaje. |    je recibido.       |
 #           |                        |  - id: identificador del |                       |
@@ -45,6 +56,14 @@
 
 
 class Monitor:
+
+    def print_alarma(self, datetime, id, dose, of, model):
+        print("  ---------------------------------------------------")
+        print("    ALARMA")
+        print("  ---------------------------------------------------")
+        print("    Son las " + str(self.format_datetime(datetime)) + ". El adulto mayor que utiliza el dispositivo " + str(model) + ":" + str(id) + " le toca tomar " + str(dose) + "gr de " + str(of))
+        print("")
+        print("")
 
     def print_notification(self, datetime, id, value, name_param, model):
         print("  ---------------------------------------------------")
