@@ -152,6 +152,26 @@ class XiaomiMyBand:
             delivery_mode=2,))  # Se realiza la publicación del mensaje en el Distribuidor de Mensajes
         connection.close()  # Se cierra la conexión
 
+        time.sleep(1)
+
+        message['x'] = self.simulate_x_position()
+        message['y'] = self.simulate_x_position()
+        message['z'] = self.simulate_x_position()
+        message['id'] = str(self.id)
+        message['datetime'] = self.simulate_datetime()
+        message['producer'] = self.producer
+        message['model'] = self.model
+        message['hardware_version'] = self.hardware_version
+        message['software_version'] = self.software_version
+        # Se establece la conexión con el Distribuidor de Mensajes
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+        # Se solicita un canal por el cuál se enviarán los signos vitales
+        channel = connection.channel()
+        channel.queue_declare(queue='body_acceleration', durable=True)
+        channel.basic_publish(exchange='', routing_key='body_acceleration', body=str(message), properties=pika.BasicProperties(
+            delivery_mode=2,))  # Se realiza la publicación del mensaje en el Distribuidor de Mensajes
+        connection.close()  # Se cierra la conexión
+
     def simulate_datetime(self):
         return time.strftime("%d:%m:%Y:%H:%M:%S")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------
-# Archivo: procesador_de_temperatura.py
+# Archivo: procesador_de_posicion.py
 # Capitulo: 3 Estilo Publica-Subscribe
 # Autor(es): Perla Velasco & Yonathan Mtz.
 # Version: 2.0.1 Mayo 2017
@@ -11,7 +11,7 @@
 #
 #   Las características de ésta clase son las siguientes:
 #
-#                                   procesador_de_temperatura.py
+#                                   procesador_de_posicion.py
 #           +-----------------------+-------------------------+------------------------+
 #           |  Nombre del elemento  |     Responsabilidad     |      Propiedades       |
 #           +-----------------------+-------------------------+------------------------+
@@ -19,9 +19,9 @@
 #           |                       |                         |    eventos generados   |
 #           |                       |  - Procesar valores     |    por el wearable     |
 #           |     Procesador de     |    extremos de          |    Xiaomi My Band.     |
-#           |     Temperatura       |    temperatura.         |  - Define el valor ex- |
+#           |     Posición          |    aceleración.         |  - Define el valor ex- |
 #           |                       |                         |    tremo de la         |
-#           |                       |                         |    temperatura.        |
+#           |                       |                         |    aceleración.        |
 #           |                       |                         |  - Notifica al monitor |
 #           |                       |                         |    cuando un valor ex- |
 #           |                       |                         |    tremo es detectado. |
@@ -34,13 +34,13 @@
 #           |         Nombre         |        Parámetros        |        Función        |
 #           +------------------------+--------------------------+-----------------------+
 #           |                        |                          |  - Recibe los signos  |
-#           |       consume()        |          Ninguno         |    vitales vitales    |
-#           |                        |                          |    desde el distribui-|
-#           |                        |                          |    dor de mensajes.   |
+#           |       consume()        |          Ninguno         |    vitales desde el   |
+#           |                        |                          |    distribuidor de    |
+#           |                        |                          |    mensajes.          |
 #           +------------------------+--------------------------+-----------------------+
 #           |                        |  - ch: propio de Rabbit. |  - Procesa y detecta  |
 #           |                        |  - method: propio de     |    valores extremos   |
-#           |                        |     Rabbit.              |    de la temperatura. |
+#           |                        |     Rabbit.              |    de la aceleración. |
 #           |       callback()       |  - properties: propio de |                       |
 #           |                        |     Rabbit.              |                       |
 #           |                        |  - body: mensaje recibi- |                       |
@@ -49,10 +49,18 @@
 #           |    string_to_json()    |  - string: texto a con-  |  - Convierte un string|
 #           |                        |     vertir en JSON.      |    en un objeto JSON. |
 #           +------------------------+--------------------------+-----------------------+
+#           |                        |  - x: aceleración en el  |  - Calcula la señal de|
+#           |                        |     eje de las x.        |    magnitud del       |
+#           |       calc_svm()       |  - y: aceleración en el  |    vector.            |
+#           |                        |     eje de las y.        |                       |
+#           |                        |  - z: aceleración en el  |                       |
+#           |                        |     eje de las z.        |                       |
+#           +------------------------+--------------------------+-----------------------+
+# 
 #
 #
 #           Nota: "propio de Rabbit" implica que se utilizan de manera interna para realizar
-#            de manera correcta la recepcion de datos, para éste ejemplo no shubo necesidad
+#            de manera correcta la recepcion de datos, para éste ejemplo no hubo necesidad
 #            de utilizarlos y para evitar la sobrecarga de información se han omitido sus
 #            detalles. Para más información acerca del funcionamiento interno de RabbitMQ
 #            puedes visitar: https://www.rabbitmq.com/
@@ -63,9 +71,12 @@ import sys
 sys.path.append('../')
 from monitor import Monitor
 import time
+import math
 
 
 class ProcesadorPosicion:
+
+    prev_svm = None
 
     def consume(self):
         try:
@@ -75,9 +86,9 @@ class ProcesadorPosicion:
             channel = connection.channel()
             # Se declara una cola para leer los mensajes enviados por el
             # Publicador
-            channel.queue_declare(queue='body_temperature', durable=True)
+            channel.queue_declare(queue='body_acceleration', durable=True)
             channel.basic_qos(prefetch_count=1)
-            channel.basic_consume(on_message_callback=self.callback, queue='body_temperature')
+            channel.basic_consume(on_message_callback=self.callback, queue='body_acceleration')
             channel.start_consuming()  # Se realiza la suscripción en el Distribuidor de Mensajes
         except (KeyboardInterrupt, SystemExit):
             channel.close()  # Se cierra la conexión
@@ -87,12 +98,26 @@ class ProcesadorPosicion:
 
     def callback(self, ch, method, properties, body):
         json_message = self.string_to_json(body)
-        if float(json_message['body_temperature']) > 69:
+        svm = self.calc_svm(
+            float(json_message['x']),
+            float(json_message['y']),
+            float(json_message['z'])
+        )
+        if self.prev_svm and (svm - self.prev_svm) >= 0.5:
+            svm_diff = svm - self.prev_svm
             monitor = Monitor()
-            monitor.print_notification(json_message['datetime'], json_message['id'], json_message[
-                                       'body_temperature'], ' Angulo de popsición', json_message['model'])
+            monitor.print_notification(json_message['datetime'], json_message['id'], svm_diff, 'aceleración', json_message['model'])
+        self.prev_svm = svm
         time.sleep(1)
         ch.basic_ack(delivery_tag=method.delivery_tag)
+    
+    def calc_svm(self, x, y, z):
+        # Se calcula el svm haciendo uso de SVM = √((𝐴𝑥)^2 + (𝐴𝑦)^2 + (𝐴𝑧)^2)
+        x2 = pow(x, 2)
+        y2 = pow(y, 2)
+        z2 = pow(z, 2)
+        sum = x2 + y2 + z2
+        return math.sqrt(sum)
 
     def string_to_json(self, string):
         message = {}
